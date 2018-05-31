@@ -9,6 +9,9 @@
 #define SHMSZ 272
 #define MEMORY_KEY 56567
 
+#define CHOICE_KEY 32213
+#define SHMSZ_CHOICE 231
+
 typedef struct {
   int stingQuantity;
   int isStingDelivery;
@@ -19,6 +22,8 @@ typedef struct {
   int waitingMessage;
 } VendingMachine;
 
+void initChoiceMemory();
+void *getShm();
 void initInventoryMemory();
 VendingMachine *getVendingMachine();
 int saveVendingMachine(VendingMachine *inventory);

@@ -1,5 +1,39 @@
 #include "inventory_client.h"
 
+void initChoiceMemory() {
+  int shmid;
+  key_t key = CHOICE_KEY;
+  void *shm;
+  printf("Init memory for inventory!\n");
+  /*
+   * Create the segment.
+   */
+  if ((shmid = shmget(key, SHMSZ_CHOICE, IPC_CREAT | 0666)) < 0) {
+    perror("shmget inventory");
+    exit(1);
+  }
+  shm = (void *)shmat(shmid, 0, 0);
+  if (shm == (void *)-1) {
+    perror("shmat");
+  }
+  memset(shm, 0, sizeof(shm));
+}
+void *getShm() {
+  int shmid;
+  key_t key = CHOICE_KEY;
+  void *shm;
+  if ((shmid = shmget(key, SHMSZ_CHOICE, 0666)) < 0) {
+    perror("shmget get inventory");
+    exit(1);
+  }
+  shm = (void *)shmat(shmid, 0, 0);
+  if (shm == (void *)-1) {
+    perror("shmat");
+    return NULL;
+  }
+  return shm;
+}
+
 void initInventoryMemory() {
   int shmid;
   key_t key = MEMORY_KEY;

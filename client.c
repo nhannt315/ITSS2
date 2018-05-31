@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include <ctype.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
@@ -17,6 +18,13 @@
 #define PROC_OK 0
 #define PROC_NG -1
 
+#define PIPE_READ 0
+#define PIPE_WRITE 1
+#define PIPE_READ_WRITE 2
+#define STD_IN 0
+#define STD_OUT 1
+#define BUFFSIZE 80
+
 void equipMain(int sock);
 int showMenu();
 void commoditySales(char *selection, int sock);
@@ -24,12 +32,15 @@ void handleMessage(char *message);
 void *handleDelivery();
 void *waitMessage(void *_sock);
 
+int first = 1;
+
 int main(int argc, char *argv[]) {
   int sock;
   struct sockaddr_in servAddr;
   unsigned short servPort;
   char *servIP;
   initInventoryMemory();
+  initChoiceMemory();
 
   /*-----------menu--------------*/
 
@@ -56,16 +67,6 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  char message[100];
-
-  // if (recv(sock, message, 100, 0) == 0) {
-  //   // error: server terminated prematurely
-  //   perror("The server terminated prematurely");
-  //   exit(4);
-  // }
-
-  // handleMessage(message);
-
   equipMain(sock);
 
   return 0;
@@ -75,16 +76,26 @@ void equipMain(int sock) {
   char message[100];
   int beingUsed = 1, err;
   pthread_t tid;
+
   VendingMachine *thisMachine = getVendingMachine();
   err = pthread_create(&tid, NULL, &waitMessage, &sock);
   while (beingUsed) {
-    int choice = showMenu();
+    int choice;
     char selection[100];
+
     VendingMachine *thisMachine = getVendingMachine();
-    while (1) {
-      thisMachine = getVendingMachine();
-      
+
+    void *shm = (void *)getShm();
+    int i =1;
+    while (i) {
+      memcpy(&choice, shm, sizeof(int));
+      if (choice > 0) {
+        printf("Choice : %d\n", choice);
+        memset(shm, 0, sizeof(shm));
+        i=0;
+      }
     }
+    i=1;
     switch (choice) {
       case 1:
         if (thisMachine->stingQuantity == 0) {
@@ -122,7 +133,7 @@ void equipMain(int sock) {
         printf("You have choosen Monster\n");
         strcpy(selection, "monster");
         break;
-      case 0:
+      case 4:
         beingUsed = 0;
         printf("Good bye!\n");
         exit(0);
@@ -131,6 +142,8 @@ void equipMain(int sock) {
         printf("Invalid choice!\n");
         continue;
     }
+    memset(shm, 0, sizeof(shm));
+    
 
     pid_t pid, wpid;
     int status;
@@ -141,12 +154,12 @@ void equipMain(int sock) {
         exit(1);
       case 0:
         // Child process
-        thisMachine = getVendingMachine();
-        saveVendingMachine(thisMachine);
         commoditySales(selection, sock);
+        memset(shm, 0, sizeof(shm));
       default:
         break;
     }
+    memset(shm, 0, sizeof(shm));
   }
 }
 
@@ -256,6 +269,7 @@ void *waitMessage(void *_sock) {
   int sock = *((int *)_sock);
   printf("wait message\n");
   char message[100];
+  int choice;
   memset(message, 0, 100);
   while (1) {
     printf("Start wait receive!\n");
@@ -265,6 +279,9 @@ void *waitMessage(void *_sock) {
       exit(4);
     }
     handleMessage(message);
+    choice = showMenu();
+    void *shm = getShm();
+    memcpy(shm, &choice, sizeof(int));
   }
 }
 
