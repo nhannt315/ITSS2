@@ -72,8 +72,8 @@ VendingMachine *getVendingMachine() {
     perror("shmat");
     return NULL;
   }
-  memcpy(result, head, sizeof(VendingMachine));
-  return result;
+  // memcpy(result, head, sizeof(VendingMachine));
+  return ptr;
 }
 
 int saveVendingMachine(VendingMachine *vendingMachine) {
@@ -85,18 +85,18 @@ int saveVendingMachine(VendingMachine *vendingMachine) {
   /*
    * Locate the segment.
    */
-  if ((shmid = shmget(key, SHMSZ, 0666)) < 0) {
-    perror("shmget get inventory");
-    exit(1);
-  }
-  /*
-   * Now we attach the segment to our data space.
-   */
-  head = ptr = (VendingMachine *)shmat(shmid, 0, 0);
-  if (head == (VendingMachine *)-1) {
-    perror("shmat");
-    exit(1);
-  }
-  memcpy(head, vendingMachine, sizeof(VendingMachine));
-  free(vendingMachine);
+  // if ((shmid = shmget(key, SHMSZ, 0666)) < 0) {
+  //   perror("shmget get inventory");
+  //   exit(1);
+  // }
+  // /*
+  //  * Now we attach the segment to our data space.
+  //  */
+  // head = ptr = (VendingMachine *)shmat(shmid, 0, 0);
+  // if (head == (VendingMachine *)-1) {
+  //   perror("shmat");
+  //   exit(1);
+  // }
+  // memcpy(head, vendingMachine, sizeof(VendingMachine));
+  // free(vendingMachine);
 }

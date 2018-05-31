@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
@@ -17,6 +18,7 @@
 #define nbq 10
 #define PROC_OK 0
 #define PROC_NG -1
+#define clear() printf("\033[H\033[J")
 
 #define PIPE_READ 0
 #define PIPE_WRITE 1
@@ -26,7 +28,7 @@
 #define BUFFSIZE 80
 
 void equipMain(int sock);
-int showMenu();
+int showMenu(int isClear);
 void commoditySales(char *selection, int sock);
 void handleMessage(char *message);
 void *handleDelivery();
@@ -79,71 +81,98 @@ void equipMain(int sock) {
 
   VendingMachine *thisMachine = getVendingMachine();
   err = pthread_create(&tid, NULL, &waitMessage, &sock);
+  int i = 1;
+  void *shm = (void *)getShm();
   while (beingUsed) {
-    int choice;
+    int choice, event, localMenu = 0;
     char selection[100];
-
-    VendingMachine *thisMachine = getVendingMachine();
-
-    void *shm = (void *)getShm();
-    int i =1;
-    while (i) {
-      memcpy(&choice, shm, sizeof(int));
-      if (choice > 0) {
-        printf("Choice : %d\n", choice);
+  head:
+    while (i == 1) {
+      memcpy(&event, shm, sizeof(int));
+      if (event > 0) {
+        choice = event;
         memset(shm, 0, sizeof(shm));
-        i=0;
+        i = 0;
+      } else if (event == -1) {
+        choice = showMenu(1);
+        memset(shm, 0, sizeof(shm));
+        i = 0;
       }
     }
-    i=1;
+    if (localMenu) {
+      choice = showMenu(0);
+    };
+    i = 1;
     switch (choice) {
       case 1:
-        if (thisMachine->stingQuantity == 0) {
-          printf("Out of stock, go buy another, boi!\n");
-          continue;
-        }
         if (thisMachine->isStingDelivery == 1) {
+          clear();
           printf("Delivering, go buy another, boi!\n");
-          continue;
+          i = 0;
+          localMenu = 1;
+          goto head;
         }
-        printf("You have choosen Sting\n");
+        if (thisMachine->stingQuantity == 0) {
+          clear();
+          printf("Out of stock, go buy another, boi!\n");
+          i = 0;
+          localMenu = 1;
+          goto head;
+        }
+
+        // printf("You have choosen Sting\n");
         strcpy(selection, "sting");
         break;
       case 2:
-        if (thisMachine->nutriQuantity == 0) {
-          printf("Out of stock, go buy another, boi!\n");
-          continue;
-        }
         if (thisMachine->isNutriDelivery == 1) {
+          clear();
           printf("Delivering, go buy another, boi!\n");
-          continue;
+          i = 0;
+          localMenu = 1;
+          goto head;
         }
-        printf("You have choosen Nutri\n");
+        if (thisMachine->nutriQuantity == 0) {
+          clear();
+          printf("Out of stock, go buy another, boi!\n");
+          i = 0;
+          localMenu = 1;
+          goto head;
+        }
+
+        // printf("You have choosen Nutri\n");
         strcpy(selection, "nutri");
         break;
       case 3:
-        if (thisMachine->monsterQuantity == 0) {
-          printf("Out of stock, go buy another, boi!\n");
-          continue;
-        }
         if (thisMachine->isMonsterDelivery == 1) {
+          clear();
           printf("Delivering, go buy another, boi!\n");
-          continue;
+          i = 0;
+          localMenu = 1;
+          goto head;
         }
-        printf("You have choosen Monster\n");
+        if (thisMachine->monsterQuantity == 0) {
+          clear();
+          printf("Out of stock, go buy another, boi!\n");
+          i = 0;
+          localMenu = 1;
+          goto head;
+        }
+        // printf("You have choosen Monster\n");
         strcpy(selection, "monster");
         break;
       case 4:
         beingUsed = 0;
         printf("Good bye!\n");
         exit(0);
-        continue;
+        goto head;
       default:
+        clear();
         printf("Invalid choice!\n");
-        continue;
+        choice = showMenu(0);
+        i = 0;
+        goto head;
     }
     memset(shm, 0, sizeof(shm));
-    
 
     pid_t pid, wpid;
     int status;
@@ -157,6 +186,7 @@ void equipMain(int sock) {
         commoditySales(selection, sock);
         memset(shm, 0, sizeof(shm));
       default:
+        wait(&status);
         break;
     }
     memset(shm, 0, sizeof(shm));
@@ -164,47 +194,63 @@ void equipMain(int sock) {
 }
 
 void commoditySales(char *selection, int sock) {
+  VendingMachine *thisMachine = getVendingMachine();
+  if (strcmp(selection, "sting") == 0) {
+    if (thisMachine->isStingDelivery == 1 || thisMachine->stingQuantity == 0)
+      return;
+  }
+  if (strcmp(selection, "nutri") == 0) {
+    if (thisMachine->isNutriDelivery == 1 || thisMachine->nutriQuantity == 0)
+      return;
+  }
+  if (strcmp(selection, "monster") == 0) {
+    if (thisMachine->isMonsterDelivery == 1 ||
+        thisMachine->monsterQuantity == 0)
+      return;
+  }
   send(sock, selection, strlen(selection), 0);
 }
 
-int showMenu() {
-  int choice;
-  VendingMachine *thisMachine = getVendingMachine();
+void showMenuDetail(VendingMachine *thisMachine) {
   printf("---------------------- \n");
   printf("Name list of Drink: ");
   printf("\n\n");
-  if (thisMachine->stingQuantity == 0) {
-    printf("1. Sting dau (Sold out)\n");
-  } else if (thisMachine->isStingDelivery == 1) {
+  if (thisMachine->isStingDelivery == 1) {
     printf("1. Sting dau (Delivering)!\n");
+  } else if (thisMachine->stingQuantity == 0) {
+    printf("1. Sting dau (Sold out)\n");
   } else {
     printf("1.  Sting dau (%d)\n", thisMachine->stingQuantity);
   }
-  if (thisMachine->nutriQuantity == 0) {
-    printf("2. Nutri (Sold out)\n");
-  } else if (thisMachine->isNutriDelivery == 1) {
+  if (thisMachine->isNutriDelivery == 1) {
     printf("2.  Nutri (Delivering)\n");
+  } else if (thisMachine->nutriQuantity == 0) {
+    printf("2. Nutri (Sold out)\n");
   } else {
     printf("2.  Nutri (%d)\n", thisMachine->nutriQuantity);
   }
-  if (thisMachine->monsterQuantity == 0) {
-    printf("3. Monster (Sold out)\n");
-  } else if (thisMachine->isMonsterDelivery == 1) {
+  if (thisMachine->isMonsterDelivery == 1) {
     printf("3. Monster (Delivering)\n");
+  } else if (thisMachine->monsterQuantity == 0) {
+    printf("3. Monster (Sold out)\n");
   } else {
     printf("3.  Monster (%d)\n", thisMachine->monsterQuantity);
   }
   printf("0. Quit\n");
   printf("\n\n");
+}
 
+int showMenu(int isClear) {
+  isClear == 1 ? clear() : 1;
+  int choice = 0;
+  VendingMachine *thisMachine = getVendingMachine();
+  showMenuDetail(thisMachine);
   printf("Enter your choice: ");
   scanf(" %d", &choice);
-
   return choice;
 }
 
 void handleMessage(char *message) {
-  printf("Message : %s\n", message);
   char *token = strtok(message, "|");
   VendingMachine *thisMachine = getVendingMachine();
   int count = 1;
@@ -229,7 +275,6 @@ void handleMessage(char *message) {
       }
       break;
     case DELIVERY:
-      printf("delivering\n");
       token = strtok(NULL, "|");
       while (token != NULL) {
         switch (count) {
@@ -260,38 +305,48 @@ void handleMessage(char *message) {
       thisMachine->isMonsterDelivery == 1) {
     pthread_t tid;
     int err = pthread_create(&tid, NULL, &handleDelivery, NULL);
+    int n = -1;
+    void *shm = getShm();
+    memcpy(shm, &n, sizeof(int));
   }
-  thisMachine->waitingMessage = 0;
   saveVendingMachine(thisMachine);
 }
 
 void *waitMessage(void *_sock) {
   int sock = *((int *)_sock);
-  printf("wait message\n");
   char message[100];
   int choice;
   memset(message, 0, 100);
   while (1) {
-    printf("Start wait receive!\n");
     if (recv(sock, message, 100, 0) == 0) {
       // error: server terminated prematurely
       perror("The server terminated prematurely");
       exit(4);
     }
     handleMessage(message);
-    choice = showMenu();
+    choice = showMenu(1);
     void *shm = getShm();
     memcpy(shm, &choice, sizeof(int));
   }
 }
 
 void *handleDelivery() {
-  printf("Handle delivery\n");
   VendingMachine *thisMachine = getVendingMachine();
   sleep(5);
-  printf("Start update\n");
-  if (thisMachine->isStingDelivery == 1) thisMachine->isStingDelivery = 0;
-  if (thisMachine->isNutriDelivery == 1) thisMachine->isNutriDelivery = 0;
-  if (thisMachine->isMonsterDelivery == 1) thisMachine->isMonsterDelivery = 0;
+  if (thisMachine->isStingDelivery == 1) {
+    thisMachine->isStingDelivery = 0;
+    thisMachine->stingQuantity = 10;
+  };
+  if (thisMachine->isNutriDelivery == 1) {
+    thisMachine->stingQuantity = 10;
+    thisMachine->isNutriDelivery = 0;
+  };
+  if (thisMachine->isMonsterDelivery == 1) {
+    thisMachine->stingQuantity = 10;
+    thisMachine->isMonsterDelivery = 0;
+  };
   saveVendingMachine(thisMachine);
+  int n = -1;
+  void *shm = getShm();
+  memcpy(shm, &n, sizeof(int));
 }
