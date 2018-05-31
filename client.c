@@ -1,31 +1,28 @@
 #include <arpa/inet.h>
 #include <ctype.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 #include "constant.h"
+#include "inventory_client.h"
 
 #define maxbuf_size 1024
 #define nbq 10
 #define PROC_OK 0
 #define PROC_NG -1
 
-typedef struct {
-  int stingQuantity;
-  int nutriQuantity;
-  int monsterQuantity;
-} VendingMachine;
-
-VendingMachine thisMachine;
-
 void equipMain(int sock);
 int showMenu();
 void commoditySales(char *selection, int sock);
 void handleMessage(char *message);
+void *handleDelivery();
+void *waitMessage(void *_sock);
 
 int main(int argc, char *argv[]) {
   int sock;
@@ -75,7 +72,9 @@ int main(int argc, char *argv[]) {
 
 void equipMain(int sock) {
   char message[100];
-  int beingUsed = 1;
+  int beingUsed = 1, err;
+  pthread_t tid;
+  err = pthread_create(&tid, NULL, &waitMessage, &sock);
   while (beingUsed) {
     int choice = showMenu();
     char selection[100];
@@ -83,6 +82,10 @@ void equipMain(int sock) {
       case 1:
         if (thisMachine.stingQuantity == 0) {
           printf("Out of stock, go buy another, boi!\n");
+          continue;
+        }
+        if (thisMachine.isStingDelivery == 1) {
+          printf("Delivering, go buy another, boi!\n");
           continue;
         }
         printf("You have choosen Sting\n");
@@ -93,12 +96,20 @@ void equipMain(int sock) {
           printf("Out of stock, go buy another, boi!\n");
           continue;
         }
+        if (thisMachine.isNutriDelivery == 1) {
+          printf("Delivering, go buy another, boi!\n");
+          continue;
+        }
         printf("You have choosen Nutri\n");
         strcpy(selection, "nutri");
         break;
       case 3:
         if (thisMachine.monsterQuantity == 0) {
           printf("Out of stock, go buy another, boi!\n");
+          continue;
+        }
+        if (thisMachine.isMonsterDelivery == 1) {
+          printf("Delivering, go buy another, boi!\n");
           continue;
         }
         printf("You have choosen Monster\n");
@@ -116,6 +127,7 @@ void equipMain(int sock) {
 
     pid_t pid, wpid;
     int status;
+
     switch (pid = fork()) {
       case -1:
         perror("Error when trying to generate child process!\n");
@@ -124,13 +136,7 @@ void equipMain(int sock) {
         // Child process
         commoditySales(selection, sock);
       default:
-        // Parent process
-        if (recv(sock, message, 100, 0) == 0) {
-          // error: server terminated prematurely
-          perror("The server terminated prematurely");
-          exit(4);
-        }
-        handleMessage(message);
+        wait(&status);
     }
   }
 }
@@ -147,16 +153,22 @@ int showMenu() {
   printf("\n\n");
   if (thisMachine.stingQuantity == 0) {
     printf("1. Sting dau (Sold out)\n");
+  } else if (thisMachine.isStingDelivery == 1) {
+    printf("1. Sting dau (Delivering)!\n");
   } else {
     printf("1.  Sting dau (%d)\n", thisMachine.stingQuantity);
   }
   if (thisMachine.nutriQuantity == 0) {
     printf("2. Nutri (Sold out)\n");
+  } else if (thisMachine.isNutriDelivery == 1) {
+    printf("2.  Nutri (Delivering)\n");
   } else {
     printf("2.  Nutri (%d)\n", thisMachine.nutriQuantity);
   }
   if (thisMachine.monsterQuantity == 0) {
     printf("3. Monster (Sold out)\n");
+  } else if (thisMachine.isMonsterDelivery == 1) {
+    printf("3. Monster (Delivering)\n");
   } else {
     printf("3.  Monster (%d)\n", thisMachine.monsterQuantity);
   }
@@ -170,8 +182,9 @@ int showMenu() {
 }
 
 void handleMessage(char *message) {
-  printf("check message : %s\n", message);
+  printf("Message : %s\n", message);
   char *token = strtok(message, "|");
+
   int count = 1;
   switch (atoi(token)) {
     case QUANTITY_MESSAGE_CODE:
@@ -194,17 +207,18 @@ void handleMessage(char *message) {
       }
       break;
     case DELIVERY:
+      printf("delivering\n");
       token = strtok(NULL, "|");
       while (token != NULL) {
         switch (count) {
           case 1:
-            thisMachine.stingQuantity = atoi(token);
+            thisMachine.isStingDelivery = atoi(token);
             break;
           case 2:
-            thisMachine.nutriQuantity = atoi(token);
+            thisMachine.isNutriDelivery = atoi(token);
             break;
           case 3:
-            thisMachine.monsterQuantity = atoi(token);
+            thisMachine.isMonsterDelivery = atoi(token);
             break;
         }
         count++;
@@ -220,4 +234,33 @@ void handleMessage(char *message) {
       exit(1);
       break;
   }
+  if (thisMachine.isStingDelivery == 1 || thisMachine.isNutriDelivery == 1 ||
+      thisMachine.isMonsterDelivery == 1) {
+    pthread_t tid;
+    int err = pthread_create(&tid, NULL, &handleDelivery, NULL);
+  }
+}
+
+void *waitMessage(void *_sock) {
+  int sock = *((int *)_sock);
+  printf("wait message\n");
+  char message[100];
+  memset(message, 0, 100);
+  while (1) {
+    printf("Start wait receive!\n") if (recv(sock, message, 100, 0) == 0) {
+      // error: server terminated prematurely
+      perror("The server terminated prematurely");
+      exit(4);
+    }
+    handleMessage(message);
+  }
+}
+
+void *handleDelivery() {
+  printf("Handle delivery\n");
+  sleep(5);
+  printf("Start update\n");
+  if (thisMachine.isStingDelivery == 1) thisMachine.isStingDelivery = 0;
+  if (thisMachine.isNutriDelivery == 1) thisMachine.isNutriDelivery = 0;
+  if (thisMachine.isMonsterDelivery == 1) thisMachine.isMonsterDelivery = 0;
 }

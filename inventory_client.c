@@ -1,4 +1,4 @@
-#include "inventory.h"
+#include "inventory_client.h"
 
 void initInventoryMemory() {
   int shmid;
@@ -16,12 +16,12 @@ void initInventoryMemory() {
 /*Inventory's String form Structure :
  * IP|clientSock|connected|string|nutri|monster;...*/
 
-Inventory *getInventory() {
+VendingMachine *getInventory() {
   int shmid;
   key_t key;
-  Inventory *ptr;
-  Inventory *head;
-  Inventory *result = (Inventory *)malloc(sizeof(Inventory));
+  VendingMachine *ptr;
+  VendingMachine *head;
+  VendingMachine *result = (VendingMachine *)malloc(sizeof(VendingMachine));
   key = MEMORY_KEY;
   /*
    * Locate the segment.
@@ -33,20 +33,20 @@ Inventory *getInventory() {
   /*
    * Now we attach the segment to our data space.
    */
-  head = ptr = (Inventory *)shmat(shmid, 0, 0);
-  if (head == (Inventory *)-1) {
+  head = ptr = (VendingMachine *)shmat(shmid, 0, 0);
+  if (head == (VendingMachine *)-1) {
     perror("shmat");
     return NULL;
   }
-  memcpy(result, head, sizeof(Inventory));
+  memcpy(result, head, sizeof(VendingMachine));
   return result;
 }
 
-int saveInventory(Inventory *inventory) {
+int saveInventory(VendingMachine *VendingMachine) {
   int shmid;
   key_t key;
-  Inventory *ptr;
-  Inventory *head;
+  VendingMachine *ptr;
+  VendingMachine *head;
   key = MEMORY_KEY;
   /*
    * Locate the segment.
@@ -58,11 +58,11 @@ int saveInventory(Inventory *inventory) {
   /*
    * Now we attach the segment to our data space.
    */
-  head = ptr = (Inventory *)shmat(shmid, 0, 0);
-  if (head == (Inventory *)-1) {
+  head = ptr = (VendingMachine *)shmat(shmid, 0, 0);
+  if (head == (VendingMachine *)-1) {
     perror("shmat");
     exit(1);
   }
-  memcpy(head, inventory, sizeof(Inventory));
+  memcpy(head, inventory, sizeof(VendingMachine));
   free(inventory);
 }

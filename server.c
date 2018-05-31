@@ -19,7 +19,7 @@
 
 #define DEFAULTQUANTITY 10
 #define SALE_OPERATION 1
-#define CHECK_OPERATION 0
+#define DELIVERY_OPERATION 0
 #define NEED_DELIVERY 3
 
 void handleClient(int clientSocket, struct sockaddr_in *clientAddr);
@@ -58,8 +58,7 @@ int main(int argc, char **argv) {
 
 void delivery() {
   printf("Start delivery checking!\n");
-  Inventory *inventory = getInventory();
-  printf("Hihi : %d\n", inventory->vdList[0].stingQuantity);
+  equipInfoAccess(DELIVERY_OPERATION, -1, NULL, "");
 }
 
 void connectMng(int argc, char **argv) {
@@ -131,6 +130,7 @@ int equipInfoAccess(int flag, int clientSock, struct sockaddr_in *clientAddr,
                     char *selection) {
   Inventory *inventory = getInventory();
   if (flag == SALE_OPERATION) {
+    printf("Selection : %s\n", selection);
     time_t rawtime;
     struct tm *info;
     time(&rawtime);
@@ -156,8 +156,34 @@ int equipInfoAccess(int flag, int clientSock, struct sockaddr_in *clientAddr,
             inventory->vdList[i].stingQuantity,
             inventory->vdList[i].nutriQuantity,
             inventory->vdList[i].monsterQuantity);
-    
+
     send(clientSock, message, 100, 0);
+    saveInventory(inventory);
+  }
+
+  if (flag == DELIVERY_OPERATION) {
+    int i;
+    char message[100];
+    for (i = 0; i < MAXCLIENT; i++) {
+      memset(message, 0, 100);
+      int sting = 0, monster = 0, nutri = 0;
+      if (inventory->vdList[i].stingQuantity <= 3) {
+        sting = 1;
+        inventory->vdList[i].stingQuantity = DEFAULTQUANTITY;
+      }
+      if (inventory->vdList[i].nutriQuantity <= 3) {
+        nutri = 1;
+        inventory->vdList[i].nutriQuantity = DEFAULTQUANTITY;
+      }
+      if (inventory->vdList[i].monsterQuantity <= 3) {
+        monster = 1;
+        inventory->vdList[i].monsterQuantity = DEFAULTQUANTITY;
+      }
+      if(monster == 1 || sting==1 || nutri ==1){
+        sprintf(message, "%d|%d|%d|%d", DELIVERY, sting, nutri, monster);
+        send(inventory->vdList[i].clientSock, message, 100, 0);
+      }
+    }
     saveInventory(inventory);
   }
 }
@@ -229,6 +255,7 @@ int checkAndAndAddNewVd(int clientSock, struct sockaddr_in *addr) {
         inventory->vdList[i].isConnected == 0) {
       if (strcmp(inventory->vdList[i].ip, getIpFromSockAddr(addr)) == 0) {
         inventory->vdList[i].isConnected = 1;
+        inventory->vdList[i].clientSock = clientSock;
         saveInventory(inventory);
         return 1;
       }
