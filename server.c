@@ -1,4 +1,5 @@
 #include <arpa/inet.h>
+#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,6 +34,7 @@ int equipInfoAccess(int flag, int clientSock, struct sockaddr_in *clientAddr,
                     char *selection);
 void connectMng(int argc, char **argv);
 void delivery();
+void clientDisconnect(char *ip);
 
 int main(int argc, char **argv) {
   pid_t deliveryPid, connectPid;
@@ -119,6 +121,43 @@ void connectMng(int argc, char **argv) {
         handleClient(clntSock, &clntAddr);
         exit(0);
       }
+    } else {
+      struct pollfd pfd;
+      int status;
+      pfd.fd = clntSock;
+      pfd.events = POLLIN | POLLHUP | POLLRDNORM;
+      pfd.revents = 0;
+      while (pfd.revents == 0) {
+        // call poll with a timeout of 100 ms
+        if (poll(&pfd, 1, 100) > 0) {
+          // if result > 0, this means that there is either data available on
+          // the socket, or the socket has been closed
+          char buffer[32];
+          if (recv(clntSock, buffer, sizeof(buffer), MSG_PEEK | MSG_DONTWAIT) ==
+              0) {
+            // if recv returns zero, that means the connection has been closed:
+            // kill the child process
+            kill(processID, SIGKILL);
+            waitpid(processID, &status, WNOHANG);
+            clientDisconnect(getIpFromSockAddr(&clntAddr));
+            close(clntSock);
+            // do something else, e.g. go on vacation
+          }
+        }
+      }
+    }
+  }
+}
+
+void clientDisconnect(char *ip) {
+  int i;
+  printf("%s disconnected from server!\n", ip);
+  Inventory *inventory = getInventory();
+  for (i = 0; i < MAXCLIENT; i++) {
+    if (strcmp(ip, inventory->vdList[i].ip) == 0) {
+      inventory->vdList[i].isConnected = 0;
+      saveInventory(inventory);
+      return;
     }
   }
 }
