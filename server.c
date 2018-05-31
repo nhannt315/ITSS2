@@ -122,26 +122,31 @@ void connectMng(int argc, char **argv) {
         exit(0);
       }
     } else {
-      struct pollfd pfd;
-      int status;
-      pfd.fd = clntSock;
-      pfd.events = POLLIN | POLLHUP | POLLRDNORM;
-      pfd.revents = 0;
-      while (pfd.revents == 0) {
-        // call poll with a timeout of 100 ms
-        if (poll(&pfd, 1, 100) > 0) {
-          // if result > 0, this means that there is either data available on
-          // the socket, or the socket has been closed
-          char buffer[32];
-          if (recv(clntSock, buffer, sizeof(buffer), MSG_PEEK | MSG_DONTWAIT) ==
-              0) {
-            // if recv returns zero, that means the connection has been closed:
-            // kill the child process
-            kill(processID, SIGKILL);
-            waitpid(processID, &status, WNOHANG);
-            clientDisconnect(getIpFromSockAddr(&clntAddr));
-            close(clntSock);
-            // do something else, e.g. go on vacation
+      pid_t pid;
+      pid = fork();
+      if (pid == 0) {
+        struct pollfd pfd;
+        int status;
+        pfd.fd = clntSock;
+        pfd.events = POLLIN | POLLHUP | POLLRDNORM;
+        pfd.revents = 0;
+        while (pfd.revents == 0) {
+          // call poll with a timeout of 100 ms
+          if (poll(&pfd, 1, 100) > 0) {
+            // if result > 0, this means that there is either data available on
+            // the socket, or the socket has been closed
+            char buffer[32];
+            if (recv(clntSock, buffer, sizeof(buffer),
+                     MSG_PEEK | MSG_DONTWAIT) == 0) {
+            // if recv returns zero, that means the connection has been
+            closed:
+              // kill the child process
+              kill(processID, SIGKILL);
+              waitpid(processID, &status, WNOHANG);
+              clientDisconnect(getIpFromSockAddr(&clntAddr));
+              close(clntSock);
+              // do something else, e.g. go on vacation
+            }
           }
         }
       }
@@ -184,7 +189,8 @@ int equipInfoAccess(int flag, int clientSock, struct sockaddr_in *clientAddr,
     } else if (strcmp(selection, "monster") == 0) {
       inventory->vdList[i].monsterQuantity--;
     }
-    printf("sting:%d nutri:%d monster:%d\n", inventory->vdList[i].stingQuantity,
+    printf("ip%s:sting:%d nutri:%d monster:%d\n", inventory->vdList[i].ip,
+           inventory->vdList[i].stingQuantity,
            inventory->vdList[i].nutriQuantity,
            inventory->vdList[i].monsterQuantity);
     char *message = malloc(100);
