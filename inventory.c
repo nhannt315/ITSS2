@@ -40,13 +40,13 @@ Inventory *getInventory() {
   rest = malloc(300);
   strcpy(rest, shm);
   while ((token = strtok_r(rest, ";", &rest))) {
-    char *token2, *rest2 = token;
+    char *token2, *rest2 = malloc(100);
+    strcpy(rest2, token);
     int count = 0, countVd = 0;
-    printf("%s\n", token);
     while ((token2 = strtok_r(rest2, "|", &rest2))) {
       switch (count) {
         case 0:
-          if (strcmp(token2, "(null)") == 0) {
+          if (strcmp(token2, "(null)") != 0) {
             inventory->vdList[countVd].ip = malloc(20);
             strcpy(inventory->vdList[countVd].ip, token2);
           }
@@ -72,6 +72,7 @@ Inventory *getInventory() {
     }
     countVd++;
   }
+    
   return inventory;
 }
 
@@ -94,20 +95,26 @@ int saveInventory(Inventory *inventory) {
     perror("shmat");
     exit(1);
   }
+  memset(shm, 0, sizeof(shm));
   printf("Write to memory\n");
 
   // Convert inventory to string
   int i;
+  char temp[100];
   char *inventoryString = malloc(300);
+  memset(inventoryString, 0, 300);
   for (i = 0; i < MAXCLIENT; i++) {
-    char *temp = malloc(100);
+    memset(temp, 0, 100);
     sprintf(temp, "%s|%d|%d|%d|%d|%d;", inventory->vdList[i].ip,
             inventory->vdList[i].clientSock, inventory->vdList[i].isConnected,
             inventory->vdList[i].stingQuantity,
             inventory->vdList[i].nutriQuantity,
             inventory->vdList[i].monsterQuantity);
+            printf("Temp : %s\n", temp);
+            printf("Sting : %d\n", inventory->vdList[i].stingQuantity);
     strcat(inventoryString, temp);
   }
+  printf("Save : %s\n", inventoryString);
   free(inventory);
   strcpy(shm, inventoryString);
 }

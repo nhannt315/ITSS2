@@ -151,12 +151,13 @@ int equipInfoAccess(int flag, int clientSock, struct sockaddr_in *clientAddr,
     printf("sting:%d nutri:%d monster:%d\n", inventory->vdList[i].stingQuantity,
            inventory->vdList[i].nutriQuantity,
            inventory->vdList[i].monsterQuantity);
-    char message[100];
+    char *message = malloc(100);
     sprintf(message, "%d|%d|%d|%d", QUANTITY_MESSAGE_CODE,
             inventory->vdList[i].stingQuantity,
             inventory->vdList[i].nutriQuantity,
             inventory->vdList[i].monsterQuantity);
-    send(clientSock, message, sizeof(message), 0);
+    
+    send(clientSock, message, 100, 0);
     saveInventory(inventory);
   }
 }
@@ -169,8 +170,7 @@ void sendInventoryInfo(int clientSock, struct sockaddr_in *addr) {
           inventory->vdList[i].stingQuantity,
           inventory->vdList[i].nutriQuantity,
           inventory->vdList[i].monsterQuantity);
-  printf("check sting :%d\n", inventory->vdList[i].stingQuantity);
-  send(clientSock, message, sizeof(message), 0);
+  send(clientSock, message, 100, 0);
   free(inventory);
 }
 
@@ -178,7 +178,7 @@ void handleClient(int clientSock, struct sockaddr_in *clientAddr) {
   char buffer[MAXBUFSIZE];
   int recvMsgSize;
 
-  if ((recvMsgSize = recv(clientSock, buffer, sizeof(buffer), 0)) < 0) {
+  if ((recvMsgSize = recv(clientSock, buffer, MAXBUFSIZE, 0)) < 0) {
     perror("receive failed!\n");
     exit(1);
   }
@@ -225,8 +225,6 @@ int checkAndAndAddNewVd(int clientSock, struct sockaddr_in *addr) {
   int i;
   Inventory *inventory = getInventory();
   for (i = 0; i < MAXCLIENT; i++) {
-    printf("%d : %s vs %s \n", i, inventory->vdList[i].ip,
-           getIpFromSockAddr(addr));
     if (inventory->vdList[i].ip != NULL &&
         inventory->vdList[i].isConnected == 0) {
       if (strcmp(inventory->vdList[i].ip, getIpFromSockAddr(addr)) == 0) {

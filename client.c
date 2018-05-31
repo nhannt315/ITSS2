@@ -170,6 +170,7 @@ int showMenu() {
 }
 
 void handleMessage(char *message) {
+  printf("check message : %s\n", message);
   char *token = strtok(message, "|");
   int count = 1;
   switch (atoi(token)) {
