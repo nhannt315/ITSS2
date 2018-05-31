@@ -16,6 +16,7 @@ typedef struct {
   int isNutriDelivery;
   int monsterQuantity;
   int isMonsterDelivery;
+  int waitingMessage;
 } VendingMachine;
 
 void initInventoryMemory();

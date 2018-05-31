@@ -41,16 +41,7 @@ int main(int argc, char **argv) {
   initInventory();
   connectPid = fork();
   if (connectPid == 0) {
-    deliveryPid = fork();
-    int status2;
-    if (deliveryPid == 0) {
-      while (1) {
-        delivery();
-        sleep(10);
-      }
-    } else {
-      connectMng(argc, argv);
-    }
+    connectMng(argc, argv);
   } else {
     wait(&status);
   }
@@ -69,7 +60,7 @@ void connectMng(int argc, char **argv) {
   unsigned short servPort;
   unsigned int clntLen;
   char sendBuffer[MAXBUFSIZE];
-  pid_t processID;
+  pid_t processID, deliveryPid;
   unsigned int childProcCount = 0;
   // initInventory();
 
@@ -112,16 +103,22 @@ void connectMng(int argc, char **argv) {
       printf("check send inventory\n");
       sendInventoryInfo(clntSock, &clntAddr);
     }
-    if ((processID = fork()) < 0) {
-      perror("Accept() failed");
-      exit(1);
-    } else if (processID == 0) {
-      close(servSock);
-      printf("Handling client %s\n", inet_ntoa(clntAddr.sin_addr));
-      // Handle
-      printf("Handle client!\n");
-      handleClient(clntSock, &clntAddr);
-      exit(0);
+    if ((processID = fork()) == 0) {
+      deliveryPid = fork();
+      int status2;
+      if (deliveryPid == 0) {
+        while (1) {
+          delivery();
+          sleep(10);
+        }
+      } else {
+        close(servSock);
+        printf("Handling client %s\n", inet_ntoa(clntAddr.sin_addr));
+        // Handle
+        printf("Handle client!\n");
+        handleClient(clntSock, &clntAddr);
+        exit(0);
+      }
     }
   }
 }
@@ -179,9 +176,10 @@ int equipInfoAccess(int flag, int clientSock, struct sockaddr_in *clientAddr,
         monster = 1;
         inventory->vdList[i].monsterQuantity = DEFAULTQUANTITY;
       }
-      if(monster == 1 || sting==1 || nutri ==1){
+      if (monster == 1 || sting == 1 || nutri == 1) {
         sprintf(message, "%d|%d|%d|%d", DELIVERY, sting, nutri, monster);
-        send(inventory->vdList[i].clientSock, message, 100, 0);
+        int result = send(inventory->vdList[i].clientSock, message, 100, 0);
+        printf("Message sent : %s ; %d\n", message, result);
       }
     }
     saveInventory(inventory);

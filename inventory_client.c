@@ -42,7 +42,7 @@ VendingMachine *getVendingMachine() {
   return result;
 }
 
-int saveVendingMachine(VendingMachine *VendingMachine) {
+int saveVendingMachine(VendingMachine *vendingMachine) {
   int shmid;
   key_t key;
   VendingMachine *ptr;
@@ -63,6 +63,6 @@ int saveVendingMachine(VendingMachine *VendingMachine) {
     perror("shmat");
     exit(1);
   }
-  memcpy(head, inventory, sizeof(VendingMachine));
-  free(inventory);
+  memcpy(head, vendingMachine, sizeof(VendingMachine));
+  free(vendingMachine);
 }
