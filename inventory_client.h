@@ -19,5 +19,5 @@ typedef struct {
 } VendingMachine;
 
 void initInventoryMemory();
-VendingMachine *getInventory();
-int saveInventory(VendingMachine *inventory);
+VendingMachine *getVendingMachine();
+int saveVendingMachine(VendingMachine *inventory);

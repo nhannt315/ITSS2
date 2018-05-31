@@ -78,6 +78,7 @@ void equipMain(int sock) {
   while (beingUsed) {
     int choice = showMenu();
     char selection[100];
+    VendingMachine *thisMachine =
     switch (choice) {
       case 1:
         if (thisMachine.stingQuantity == 0) {

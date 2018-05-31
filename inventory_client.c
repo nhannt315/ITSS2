@@ -16,7 +16,7 @@ void initInventoryMemory() {
 /*Inventory's String form Structure :
  * IP|clientSock|connected|string|nutri|monster;...*/
 
-VendingMachine *getInventory() {
+VendingMachine *getVendingMachine() {
   int shmid;
   key_t key;
   VendingMachine *ptr;
@@ -42,7 +42,7 @@ VendingMachine *getInventory() {
   return result;
 }
 
-int saveInventory(VendingMachine *VendingMachine) {
+int saveVendingMachine(VendingMachine *VendingMachine) {
   int shmid;
   key_t key;
   VendingMachine *ptr;
